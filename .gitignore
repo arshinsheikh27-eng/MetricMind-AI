@@ -1,0 +1,9 @@
+# Raw datasets
+Dataset/raw_data/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files
+*.tmp
