@@ -105,61 +105,6 @@ FROM sales_data;
    4. REGION-WISE ANALYSIS
    ============================================================ */
 
-SELECT
-    "Region",
-    COUNT(DISTINCT "Order ID") AS total_orders,
-    SUM("Units Sold") AS total_units_sold,
-    ROUND(SUM("Total Revenue"), 2) AS total_revenue,
-    ROUND(SUM("Total Cost"), 2) AS total_cost,
-    ROUND(SUM("Total Profit"), 2) AS total_profit,
-    ROUND(
-        SUM("Total Profit")
-        / NULLIF(SUM("Total Revenue"), 0) * 100,
-        2
-    ) AS profit_margin_percent
-FROM sales_data
-GROUP BY "Region"
-ORDER BY total_revenue DESC;
-
-SELECT
-    COUNT(DISTINCT "Order ID") AS total_orders,
-    SUM("Units Sold") AS total_units_sold,
-    ROUND(SUM("Total Revenue"), 2) AS total_revenue,
-    ROUND(SUM("Total Cost"), 2) AS total_cost,
-    ROUND(SUM("Total Profit"), 2) AS total_profit,
-
-    ROUND(
-        SUM("Total Profit")
-        / NULLIF(SUM("Total Revenue"), 0) * 100,
-        2
-    ) AS profit_margin_percent,
-
-    ROUND(
-        SUM("Total Revenue")
-        / NULLIF(COUNT(DISTINCT "Order ID"), 0),
-        2
-    ) AS average_order_value,
-
-    ROUND(AVG("Unit Price"), 2) AS average_unit_price,
-
-    ROUND(AVG("Unit Cost"), 2) AS average_unit_cost,
-
-    ROUND(
-        SUM("Total Profit")
-        / NULLIF(COUNT(DISTINCT "Order ID"), 0),
-        2
-    ) AS average_profit_per_order,
-
-    ROUND(
-        SUM("Total Profit")
-        / NULLIF(SUM("Units Sold"), 0),
-        2
-    ) AS profit_per_unit,
-
-    ROUND(AVG("Shipping Days"), 2) AS average_shipping_days
-
-FROM sales_data;
-
 
 SELECT
     "Region",

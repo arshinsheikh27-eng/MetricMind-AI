@@ -115,7 +115,8 @@
 
 -- Total Cost must not be negative.
 
--- Total Profit must not be negative.
+-- Negative profit should be reviewed as a potential business condition
+-- rather than automatically treated as invalid data.
 
 -- Ship Date must not be earlier than Order Date.
 
