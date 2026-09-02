@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_sales
+    description: "Staged MetricMind sales data"
+
+    columns:
+      - name: order_id
+        description: "Unique identifier for each sales order"
+        tests:
+          - not_null
+          - unique
