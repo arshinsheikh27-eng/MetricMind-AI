@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.services.analytics_service import AnalyticsService
@@ -13,6 +14,15 @@ app = FastAPI(
     title="MetricMind Backend",
     version="0.2.0",
     description="Backend API for the MetricMind analytics system",
+)
+
+# Allow the Next.js frontend to communicate with the FastAPI backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
