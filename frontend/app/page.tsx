@@ -33,6 +33,9 @@ type ProfitProduct = {
 };
 
 export default function Home() {
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
   const [summary, setSummary] = useState<Summary | null>(null);
   const [revenueByRegion, setRevenueByRegion] = useState<RevenueRegion[]>([]);
   const [profitByProduct, setProfitByProduct] = useState<ProfitProduct[]>([]);
@@ -44,9 +47,9 @@ export default function Home() {
       try {
         const [summaryResponse, regionResponse, productResponse] =
           await Promise.all([
-            fetch("http://127.0.0.1:8000/analytics/summary"),
-            fetch("http://127.0.0.1:8000/analytics/revenue-by-region"),
-            fetch("http://127.0.0.1:8000/analytics/profit-by-product"),
+            fetch(`${API_URL}/analytics/summary`),
+            fetch(`${API_URL}/analytics/revenue-by-region`),
+            fetch(`${API_URL}/analytics/profit-by-product`),
           ]);
 
         if (
@@ -73,7 +76,7 @@ export default function Home() {
     }
 
     loadDashboard();
-  }, []);
+  }, [API_URL]);
 
   const formatCurrency = (value: number) =>
     `$${(value / 1_000_000_000).toFixed(1)}B`;
@@ -84,11 +87,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="flex min-h-screen">
-        {/* Sidebar */}
         <aside className="hidden w-64 border-r border-slate-800 bg-slate-900 p-6 md:block">
-          <h1 className="text-2xl font-bold text-cyan-400">
-            MetricMind
-          </h1>
+          <h1 className="text-2xl font-bold text-cyan-400">MetricMind</h1>
 
           <p className="mt-2 text-sm text-slate-400">
             Agentic Semantic BI
@@ -109,7 +109,6 @@ export default function Home() {
           </nav>
         </aside>
 
-        {/* Main content */}
         <section className="flex-1 p-6 md:p-10">
           <div className="mx-auto max-w-7xl">
             <header className="mb-8">
@@ -126,14 +125,12 @@ export default function Home() {
               </p>
             </header>
 
-            {/* Error */}
             {error && (
               <div className="mb-6 rounded-lg border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">
                 {error}
               </div>
             )}
 
-            {/* KPI Cards */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard
                 title="Total Revenue"
@@ -172,9 +169,7 @@ export default function Home() {
               />
             </div>
 
-            {/* Charts */}
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              {/* Revenue by Region */}
               <DashboardCard
                 title="Revenue by Region"
                 description="Revenue distribution across geographic regions."
@@ -194,7 +189,10 @@ export default function Home() {
                           bottom: 10,
                         }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#1e293b"
+                        />
 
                         <XAxis
                           type="number"
@@ -234,7 +232,6 @@ export default function Home() {
                 </div>
               </DashboardCard>
 
-              {/* Profit by Product */}
               <DashboardCard
                 title="Profit by Product"
                 description="Profit contribution across product categories."
@@ -253,7 +250,10 @@ export default function Home() {
                           bottom: 50,
                         }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#1e293b"
+                        />
 
                         <XAxis
                           dataKey="item_type"
@@ -294,7 +294,6 @@ export default function Home() {
               </DashboardCard>
             </div>
 
-            {/* AI Section */}
             <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
               <p className="text-sm font-medium text-cyan-400">
                 AI ANALYST
@@ -305,8 +304,8 @@ export default function Home() {
               </h3>
 
               <p className="mt-2 text-sm text-slate-400">
-                Ask a natural-language business question and get an AI-powered
-                answer.
+                Ask a natural-language business question and get an
+                AI-powered answer.
               </p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -338,6 +337,7 @@ function MetricCard({
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
       <p className="text-sm text-slate-400">{title}</p>
+
       <p className="mt-3 text-2xl font-bold">{value}</p>
     </div>
   );
@@ -355,7 +355,11 @@ function DashboardCard({
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
       <h3 className="text-lg font-semibold">{title}</h3>
-      <p className="mt-1 mb-4 text-sm text-slate-400">{description}</p>
+
+      <p className="mt-1 mb-4 text-sm text-slate-400">
+        {description}
+      </p>
+
       {children}
     </div>
   );
