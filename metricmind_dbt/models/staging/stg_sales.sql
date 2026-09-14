@@ -22,4 +22,4 @@ SELECT
     year_month,
     order_month,
     order_quarter
-FROM {{ source('raw', 'raw_sales') }}
+FROM {{ source('raw', 'sales_data') }}
