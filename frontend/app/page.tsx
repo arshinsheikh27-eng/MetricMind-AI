@@ -42,6 +42,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState("");
+
   useEffect(() => {
     async function loadDashboard() {
       try {
@@ -69,7 +74,9 @@ export default function Home() {
         setProfitByProduct(productData.data);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
-        setError("Unable to load analytics data.");
+        setError(
+          "Unable to load analytics data. Please make sure the backend and database are running."
+        );
       } finally {
         setLoading(false);
       }
@@ -77,6 +84,59 @@ export default function Home() {
 
     loadDashboard();
   }, [API_URL]);
+
+  async function askMetricMind() {
+    if (!question.trim()) {
+      setAskError("Please enter a business question.");
+      return;
+    }
+
+    setAskLoading(true);
+    setAskError("");
+    setAnswer("");
+
+    try {
+      const response = await fetch(`${API_URL}/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: question.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Unable to get AI response.");
+      }
+
+      setAnswer(
+        data.answer ||
+          data.response ||
+          data.message ||
+          JSON.stringify(data, null, 2)
+      );
+    } catch (err) {
+      console.error("Ask MetricMind failed:", err);
+      setAskError(
+        err instanceof Error
+          ? err.message
+          : "Unable to get an answer from MetricMind."
+      );
+    } finally {
+      setAskLoading(false);
+    }
+  }
+
+  function handleQuestionKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) {
+    if (event.key === "Enter") {
+      askMetricMind();
+    }
+  }
 
   const formatCurrency = (value: number) =>
     `$${(value / 1_000_000_000).toFixed(1)}B`;
@@ -311,14 +371,40 @@ export default function Home() {
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={handleQuestionKeyDown}
                   placeholder="e.g. Which region generated the most revenue?"
                   className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none placeholder:text-slate-600 focus:border-cyan-400"
+                  disabled={askLoading}
                 />
 
-                <button className="rounded-lg bg-cyan-500 px-6 py-3 font-medium text-slate-950 transition hover:bg-cyan-400">
-                  Ask AI
+                <button
+                  onClick={askMetricMind}
+                  disabled={askLoading}
+                  className="rounded-lg bg-cyan-500 px-6 py-3 font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {askLoading ? "Thinking..." : "Ask AI"}
                 </button>
               </div>
+
+              {askError && (
+                <div className="mt-4 rounded-lg border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">
+                  {askError}
+                </div>
+              )}
+
+              {answer && (
+                <div className="mt-5 rounded-lg border border-cyan-900 bg-slate-950 p-5">
+                  <p className="text-sm font-medium text-cyan-400">
+                    MetricMind Answer
+                  </p>
+
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
+                    {answer}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </section>

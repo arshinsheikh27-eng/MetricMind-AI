@@ -16,7 +16,7 @@ SELECT
     total_cost,
     total_profit,
     shipping_days,
-    profit_margin_percent,
+    profit_margin_pct,
     order_year,
     month_name,
     year_month,
