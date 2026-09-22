@@ -16,11 +16,10 @@ app = FastAPI(
     description="Backend API for the MetricMind analytics system",
 )
 
-# Allow the Next.js frontend to communicate with the FastAPI backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

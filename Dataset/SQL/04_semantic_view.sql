@@ -35,6 +35,12 @@ SELECT
     "Profit Margin %",
     "Shipping Days",
 
+    -- Profit category thresholds are prototype business classifications
+    -- selected for reporting and AI-agent demonstration purposes.
+    -- High Profit: >= 500,000
+    -- Medium Profit: 100,000 to < 500,000
+    -- Low Profit: < 100,000
+
     CASE
         WHEN "Total Profit" >= 500000 THEN 'High Profit'
         WHEN "Total Profit" >= 100000 THEN 'Medium Profit'

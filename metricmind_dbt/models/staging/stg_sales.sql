@@ -16,7 +16,7 @@ SELECT
     "Total Cost" AS total_cost,
     "Total Profit" AS total_profit,
     "Shipping Days" AS shipping_days,
-    "Profit Margin %" AS profit_margin_percent,
+    "Profit Margin %" AS profit_margin_pct,
     "Order Year" AS order_year,
     "Month Name" AS month_name,
     "Year-Month" AS year_month,

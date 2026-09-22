@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -10,9 +10,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 type Summary = {
   total_revenue: number;
@@ -36,20 +33,19 @@ type ProfitProduct = {
 };
 
 export default function Home() {
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
   const [summary, setSummary] = useState<Summary | null>(null);
   const [revenueByRegion, setRevenueByRegion] = useState<RevenueRegion[]>([]);
   const [profitByProduct, setProfitByProduct] = useState<ProfitProduct[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [activeSection, setActiveSection] = useState("dashboard");
-
-  const [question, setQuestion] = useState(
-    "Which region generated the most revenue?"
-  );
+  const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
-  const [asking, setAsking] = useState(false);
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState("");
 
   useEffect(() => {
     async function loadDashboard() {
@@ -77,44 +73,26 @@ export default function Home() {
         setRevenueByRegion(regionData.data);
         setProfitByProduct(productData.data);
       } catch (err) {
-        console.error("Dashboard loading error:", err);
-        setError("Unable to load analytics data.");
+        console.error("Failed to load dashboard:", err);
+        setError(
+          "Unable to load analytics data. Please make sure the backend and database are running."
+        );
       } finally {
         setLoading(false);
       }
     }
 
     loadDashboard();
-  }, []);
+  }, [API_URL]);
 
-  const scrollToSection = (section: string) => {
-    setActiveSection(section);
-
-    const element = document.getElementById(section);
-
-    if (element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  };
-
-  const formatCurrency = (value: number) =>
-    `$${(value / 1_000_000_000).toFixed(1)}B`;
-
-  const formatBillions = (value: number) =>
-    `$${(value / 1_000_000_000).toFixed(1)}B`;
-
-  async function askAI() {
-    const trimmedQuestion = question.trim();
-
-    if (!trimmedQuestion) {
-      setAnswer("Please enter a business question.");
+  async function askMetricMind() {
+    if (!question.trim()) {
+      setAskError("Please enter a business question.");
       return;
     }
 
-    setAsking(true);
+    setAskLoading(true);
+    setAskError("");
     setAnswer("");
 
     try {
@@ -124,390 +102,259 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          question: trimmedQuestion,
+          question: question.trim(),
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok && data.answer) {
-        setAnswer(data.answer);
-        return;
+      if (!response.ok) {
+        throw new Error(data.detail || "Unable to get AI response.");
       }
 
-      throw new Error(data.detail || "AI service unavailable");
+      setAnswer(
+        data.answer ||
+          data.response ||
+          data.message ||
+          JSON.stringify(data, null, 2)
+      );
     } catch (err) {
-      console.warn("AI service unavailable, using dashboard data:", err);
-
-      const lowerQuestion = trimmedQuestion.toLowerCase();
-
-      if (
-        lowerQuestion.includes("region") &&
-        lowerQuestion.includes("revenue")
-      ) {
-        const topRegion = [...revenueByRegion].sort(
-          (a, b) => b.revenue - a.revenue
-        )[0];
-
-        if (topRegion) {
-          setAnswer(
-            `${topRegion.region} generated the most revenue, with ${formatCurrency(
-              topRegion.revenue
-            )} in total revenue.`
-          );
-        } else {
-          setAnswer("Revenue-by-region data is not available.");
-        }
-      } else if (
-        lowerQuestion.includes("product") &&
-        lowerQuestion.includes("profit")
-      ) {
-        const topProduct = [...profitByProduct].sort(
-          (a, b) => b.profit - a.profit
-        )[0];
-
-        if (topProduct) {
-          setAnswer(
-            `${topProduct.item_type} generated the highest profit, with ${formatCurrency(
-              topProduct.profit
-            )} in total profit.`
-          );
-        } else {
-          setAnswer("Profit-by-product data is not available.");
-        }
-      } else if (
-        lowerQuestion.includes("total revenue") ||
-        lowerQuestion.includes("revenue")
-      ) {
-        setAnswer(
-          `Total revenue is ${formatCurrency(
-            summary?.total_revenue ?? 0
-          )}.`
-        );
-      } else if (
-        lowerQuestion.includes("total profit") ||
-        lowerQuestion.includes("profit")
-      ) {
-        setAnswer(
-          `Total profit is ${formatCurrency(
-            summary?.total_profit ?? 0
-          )}, with a profit margin of ${summary?.profit_margin_percent.toFixed(
-            1
-          )}%.`
-        );
-      } else if (
-        lowerQuestion.includes("order") ||
-        lowerQuestion.includes("orders")
-      ) {
-        setAnswer(
-          `MetricMind recorded ${(
-            summary?.total_orders ?? 0
-          ).toLocaleString()} total orders.`
-        );
-      } else if (
-        lowerQuestion.includes("margin") ||
-        lowerQuestion.includes("profit margin")
-      ) {
-        setAnswer(
-          `The overall profit margin is ${summary?.profit_margin_percent.toFixed(
-            1
-          )}%.`
-        );
-      } else {
-        setAnswer(
-          "The AI service is currently unavailable because the OpenAI API has no remaining credits. I can still answer common questions using the loaded MetricMind dashboard data."
-        );
-      }
+      console.error("Ask MetricMind failed:", err);
+      setAskError(
+        err instanceof Error
+          ? err.message
+          : "Unable to get an answer from MetricMind."
+      );
     } finally {
-      setAsking(false);
+      setAskLoading(false);
     }
   }
+
+  function handleQuestionKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) {
+    if (event.key === "Enter") {
+      askMetricMind();
+    }
+  }
+
+  const formatCurrency = (value: number) =>
+    `$${(value / 1_000_000_000).toFixed(1)}B`;
+
+  const formatBillions = (value: number) =>
+    `$${(value / 1_000_000_000).toFixed(1)}B`;
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="flex min-h-screen">
         <aside className="hidden w-64 border-r border-slate-800 bg-slate-900 p-6 md:block">
-          <h1 className="text-2xl font-bold text-cyan-400">
-            MetricMind
-          </h1>
+          <h1 className="text-2xl font-bold text-cyan-400">MetricMind</h1>
 
           <p className="mt-2 text-sm text-slate-400">
             Agentic Semantic BI
           </p>
 
           <nav className="mt-10 space-y-2">
-            <button
-              type="button"
-              onClick={() => scrollToSection("dashboard")}
-              className={`w-full rounded-lg px-4 py-3 text-left transition ${
-                activeSection === "dashboard"
-                  ? "bg-cyan-500/10 text-cyan-400"
-                  : "text-slate-400 hover:bg-slate-800"
-              }`}
-            >
+            <div className="rounded-lg bg-cyan-500/10 px-4 py-3 text-cyan-400">
               Dashboard
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => scrollToSection("analytics")}
-              className={`w-full rounded-lg px-4 py-3 text-left transition ${
-                activeSection === "analytics"
-                  ? "bg-cyan-500/10 text-cyan-400"
-                  : "text-slate-400 hover:bg-slate-800"
-              }`}
-            >
+            <div className="rounded-lg px-4 py-3 text-slate-400 hover:bg-slate-800">
               Analytics
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => scrollToSection("ask-ai")}
-              className={`w-full rounded-lg px-4 py-3 text-left transition ${
-                activeSection === "ask-ai"
-                  ? "bg-cyan-500/10 text-cyan-400"
-                  : "text-slate-400 hover:bg-slate-800"
-              }`}
-            >
+            <div className="rounded-lg px-4 py-3 text-slate-400 hover:bg-slate-800">
               Ask AI
-            </button>
+            </div>
           </nav>
         </aside>
 
         <section className="flex-1 p-6 md:p-10">
           <div className="mx-auto max-w-7xl">
+            <header className="mb-8">
+              <p className="text-sm font-medium text-cyan-400">
+                BUSINESS INTELLIGENCE
+              </p>
 
-            {/* DASHBOARD */}
-            <section id="dashboard" className="scroll-mt-8">
-              <header className="mb-8">
-                <p className="text-sm font-medium text-cyan-400">
-                  BUSINESS INTELLIGENCE
-                </p>
+              <h2 className="mt-2 text-3xl font-bold tracking-tight">
+                Analytics Dashboard
+              </h2>
 
-                <h2 className="mt-2 text-3xl font-bold tracking-tight">
-                  Analytics Dashboard
-                </h2>
+              <p className="mt-2 text-slate-400">
+                Real-time insights from your MetricMind analytics platform.
+              </p>
+            </header>
 
-                <p className="mt-2 text-slate-400">
-                  Real-time insights from your MetricMind analytics
-                  platform.
-                </p>
-              </header>
+            {error && (
+              <div className="mb-6 rounded-lg border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">
+                {error}
+              </div>
+            )}
 
-              {error && (
-                <div className="mb-6 rounded-lg border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">
-                  {error}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                title="Total Revenue"
+                value={
+                  loading
+                    ? "Loading..."
+                    : formatCurrency(summary?.total_revenue ?? 0)
+                }
+              />
+
+              <MetricCard
+                title="Total Profit"
+                value={
+                  loading
+                    ? "Loading..."
+                    : formatCurrency(summary?.total_profit ?? 0)
+                }
+              />
+
+              <MetricCard
+                title="Total Orders"
+                value={
+                  loading
+                    ? "Loading..."
+                    : summary?.total_orders.toLocaleString() ?? "0"
+                }
+              />
+
+              <MetricCard
+                title="Profit Margin"
+                value={
+                  loading
+                    ? "Loading..."
+                    : `${summary?.profit_margin_percent.toFixed(1) ?? "0"}%`
+                }
+              />
+            </div>
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              <DashboardCard
+                title="Revenue by Region"
+                description="Revenue distribution across geographic regions."
+              >
+                <div className="h-80">
+                  {loading ? (
+                    <ChartLoading />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={revenueByRegion}
+                        layout="vertical"
+                        margin={{
+                          top: 10,
+                          right: 20,
+                          left: 20,
+                          bottom: 10,
+                        }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#1e293b"
+                        />
+
+                        <XAxis
+                          type="number"
+                          tickFormatter={formatBillions}
+                          stroke="#94a3b8"
+                          fontSize={11}
+                        />
+
+                        <YAxis
+                          type="category"
+                          dataKey="region"
+                          width={150}
+                          stroke="#94a3b8"
+                          fontSize={11}
+                        />
+
+                        <Tooltip
+                          formatter={(value) =>
+                            formatCurrency(Number(value))
+                          }
+                          contentStyle={{
+                            backgroundColor: "#0f172a",
+                            border: "1px solid #334155",
+                            borderRadius: "8px",
+                            color: "#fff",
+                          }}
+                        />
+
+                        <Bar
+                          dataKey="revenue"
+                          fill="#06b6d4"
+                          radius={[0, 5, 5, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
-              )}
+              </DashboardCard>
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricCard
-                  title="Total Revenue"
-                  value={
-                    loading
-                      ? "Loading..."
-                      : formatCurrency(summary?.total_revenue ?? 0)
-                  }
-                />
-
-                <MetricCard
-                  title="Total Profit"
-                  value={
-                    loading
-                      ? "Loading..."
-                      : formatCurrency(summary?.total_profit ?? 0)
-                  }
-                />
-
-                <MetricCard
-                  title="Total Orders"
-                  value={
-                    loading
-                      ? "Loading..."
-                      : (
-                          summary?.total_orders ?? 0
-                        ).toLocaleString()
-                  }
-                />
-
-                <MetricCard
-                  title="Profit Margin"
-                  value={
-                    loading
-                      ? "Loading..."
-                      : `${summary?.profit_margin_percent.toFixed(
-                          1
-                        )}%`
-                  }
-                />
-              </div>
-            </section>
-
-            {/* ANALYTICS */}
-            <section
-              id="analytics"
-              className={`mt-8 scroll-mt-8 rounded-2xl transition ${
-                activeSection === "analytics"
-                  ? "ring-2 ring-cyan-400/70"
-                  : ""
-              }`}
-            >
-              <div className="mb-5">
-                <p className="text-sm font-medium text-cyan-400">
-                  ANALYTICS
-                </p>
-
-                <h3 className="mt-1 text-2xl font-bold">
-                  Business Analytics
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-400">
-                  Explore revenue and profit performance across the
-                  business.
-                </p>
-              </div>
-
-              <div className="grid gap-6 lg:grid-cols-2">
-                <DashboardCard
-                  title="Revenue by Region"
-                  description="Revenue distribution across geographic regions."
-                >
-                  <div className="h-80">
-                    {loading ? (
-                      <ChartLoading />
-                    ) : (
-                      <ResponsiveContainer
-                        width="100%"
-                        height="100%"
+              <DashboardCard
+                title="Profit by Product"
+                description="Profit contribution across product categories."
+              >
+                <div className="h-80">
+                  {loading ? (
+                    <ChartLoading />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={profitByProduct}
+                        margin={{
+                          top: 10,
+                          right: 20,
+                          left: 10,
+                          bottom: 50,
+                        }}
                       >
-                        <BarChart
-                          data={revenueByRegion}
-                          layout="vertical"
-                          margin={{
-                            top: 10,
-                            right: 20,
-                            left: 20,
-                            bottom: 10,
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#1e293b"
+                        />
+
+                        <XAxis
+                          dataKey="item_type"
+                          angle={-35}
+                          textAnchor="end"
+                          interval={0}
+                          stroke="#94a3b8"
+                          fontSize={10}
+                        />
+
+                        <YAxis
+                          tickFormatter={formatBillions}
+                          stroke="#94a3b8"
+                          fontSize={11}
+                        />
+
+                        <Tooltip
+                          formatter={(value) =>
+                            formatCurrency(Number(value))
+                          }
+                          contentStyle={{
+                            backgroundColor: "#0f172a",
+                            border: "1px solid #334155",
+                            borderRadius: "8px",
+                            color: "#fff",
                           }}
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#1e293b"
-                          />
+                        />
 
-                          <XAxis
-                            type="number"
-                            tickFormatter={formatBillions}
-                            stroke="#94a3b8"
-                            fontSize={11}
-                          />
+                        <Bar
+                          dataKey="profit"
+                          fill="#22c55e"
+                          radius={[5, 5, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </DashboardCard>
+            </div>
 
-                          <YAxis
-                            type="category"
-                            dataKey="region"
-                            width={150}
-                            stroke="#94a3b8"
-                            fontSize={11}
-                          />
-
-                          <Tooltip
-                            formatter={(value) =>
-                              formatCurrency(Number(value))
-                            }
-                            contentStyle={{
-                              backgroundColor: "#0f172a",
-                              border: "1px solid #334155",
-                              borderRadius: "8px",
-                              color: "#fff",
-                            }}
-                          />
-
-                          <Bar
-                            dataKey="revenue"
-                            fill="#06b6d4"
-                            radius={[0, 5, 5, 0]}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </div>
-                </DashboardCard>
-
-                <DashboardCard
-                  title="Profit by Product"
-                  description="Profit contribution across product categories."
-                >
-                  <div className="h-80">
-                    {loading ? (
-                      <ChartLoading />
-                    ) : (
-                      <ResponsiveContainer
-                        width="100%"
-                        height="100%"
-                      >
-                        <BarChart
-                          data={profitByProduct}
-                          margin={{
-                            top: 10,
-                            right: 20,
-                            left: 10,
-                            bottom: 50,
-                          }}
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#1e293b"
-                          />
-
-                          <XAxis
-                            dataKey="item_type"
-                            angle={-35}
-                            textAnchor="end"
-                            interval={0}
-                            stroke="#94a3b8"
-                            fontSize={10}
-                          />
-
-                          <YAxis
-                            tickFormatter={formatBillions}
-                            stroke="#94a3b8"
-                            fontSize={11}
-                          />
-
-                          <Tooltip
-                            formatter={(value) =>
-                              formatCurrency(Number(value))
-                            }
-                            contentStyle={{
-                              backgroundColor: "#0f172a",
-                              border: "1px solid #334155",
-                              borderRadius: "8px",
-                              color: "#fff",
-                            }}
-                          />
-
-                          <Bar
-                            dataKey="profit"
-                            fill="#22c55e"
-                            radius={[5, 5, 0, 0]}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </div>
-                </DashboardCard>
-              </div>
-            </section>
-
-            {/* ASK AI */}
-            <section
-              id="ask-ai"
-              className={`mt-8 scroll-mt-8 rounded-xl border border-slate-800 bg-slate-900 p-6 transition ${
-                activeSection === "ask-ai"
-                  ? "ring-2 ring-cyan-400/70"
-                  : ""
-              }`}
-            >
+            <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
               <p className="text-sm font-medium text-cyan-400">
                 AI ANALYST
               </p>
@@ -525,40 +372,40 @@ export default function Home() {
                 <input
                   type="text"
                   value={question}
-                  onChange={(event) =>
-                    setQuestion(event.target.value)
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      askAI();
-                    }
-                  }}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={handleQuestionKeyDown}
                   placeholder="e.g. Which region generated the most revenue?"
                   className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none placeholder:text-slate-600 focus:border-cyan-400"
+                  disabled={askLoading}
                 />
 
                 <button
-                  type="button"
-                  onClick={askAI}
-                  disabled={asking}
-                  className="rounded-lg bg-cyan-500 px-6 py-3 font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={askMetricMind}
+                  disabled={askLoading}
+                  className="rounded-lg bg-cyan-500 px-6 py-3 font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {asking ? "Analyzing..." : "Ask AI"}
+                  {askLoading ? "Thinking..." : "Ask AI"}
                 </button>
               </div>
 
+              {askError && (
+                <div className="mt-4 rounded-lg border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">
+                  {askError}
+                </div>
+              )}
+
               {answer && (
-                <div className="mt-5 rounded-lg border border-cyan-900 bg-cyan-950/30 p-5">
+                <div className="mt-5 rounded-lg border border-cyan-900 bg-slate-950 p-5">
                   <p className="text-sm font-medium text-cyan-400">
                     MetricMind Answer
                   </p>
 
-                  <p className="mt-2 leading-7 text-slate-200">
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
                     {answer}
                   </p>
                 </div>
               )}
-            </section>
+            </div>
           </div>
         </section>
       </div>
@@ -589,13 +436,13 @@ function DashboardCard({
 }: {
   title: string;
   description: string;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
       <h3 className="text-lg font-semibold">{title}</h3>
 
-      <p className="mb-4 mt-1 text-sm text-slate-400">
+      <p className="mt-1 mb-4 text-sm text-slate-400">
         {description}
       </p>
 
